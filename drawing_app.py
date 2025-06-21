@@ -39,6 +39,7 @@ transform_start_pos = None
 original_shape_data = None
 thickness = 5
 mouse_pos = (0, 0)
+undo_stack = []
 
 # Font untuk UI
 font = pygame.font.Font(None, 20)
@@ -197,6 +198,13 @@ undo_button = Button(900, 90, 80, 30, "Undo")
 # Set defaults
 drawing_tools[0].active = True
 color_buttons[0].active = True
+
+def save_state():
+    """Save current state to undo stack"""
+    global undo_stack
+    undo_stack.append([shape.copy() for shape in shapes])
+    if len(undo_stack) > 50:  # Limit undo history
+        undo_stack.pop(0)
 
 def get_shape_center(shape):
     """Get center point of a shape"""
@@ -511,7 +519,7 @@ def draw_temp_shape(mouse_pos):
 async def main():
     global is_drawing, start_pos, shapes, points, selected_shape, transform_mode
     global is_transforming, transform_start_pos, original_shape_data, thickness
-    global drawing_mode, current_color, mouse_pos
+    global drawing_mode, current_color, mouse_pos, undo_stack
     
     clock = pygame.time.Clock()
     running = True
@@ -567,14 +575,14 @@ async def main():
                     
                     # Other buttons
                     if clear_button.is_clicked(mouse_pos):
+                        save_state()
                         shapes = []
                         points = []
                         selected_shape = None
                         is_transforming = False
-                    elif undo_button.is_clicked(mouse_pos) and shapes:
-                        if selected_shape == len(shapes) - 1:
-                            selected_shape = None
-                        shapes.pop()
+                    elif undo_button.is_clicked(mouse_pos) and undo_stack:
+                        shapes = undo_stack.pop()
+                        selected_shape = None
                         is_transforming = False
                         
                 else:
@@ -595,6 +603,7 @@ async def main():
                             
                     else:
                         # Drawing mode
+                        save_state()
                         if drawing_mode == "titik":
                             shapes.append({
                                 'type': 'titik',
@@ -676,6 +685,7 @@ async def main():
                     
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_RETURN and drawing_mode == "titik_sambung" and points:
+                    save_state()
                     shapes.append({
                         'type': 'titik_sambung',
                         'points': points.copy(),
